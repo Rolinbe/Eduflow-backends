@@ -1081,3 +1081,84 @@ export const markAllAdminNotificationsRead = async (req: AuthRequest, res: Respo
     res.status(500).json({ error: 'Erreur interne du serveur' });
   }
 };
+
+const createAnnouncementSchema = z.object({
+  title: z.string().min(3, 'Le titre doit contenir au moins 3 caractères'),
+  content: z.string().min(10, 'Le contenu doit contenir au moins 10 caractères'),
+});
+
+export const getAnnouncements = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const announcements = await prisma.announcement.findMany({
+      include: {
+        admin: { select: { id: true, firstName: true, lastName: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json({ announcements });
+  } catch (error) {
+    logger.error('Erreur getAnnouncements:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+};
+
+export const createAnnouncement = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ error: 'Non authentifié' }); return; }
+    const validated = createAnnouncementSchema.parse(req.body);
+
+    const announcement = await prisma.announcement.create({
+      data: {
+        title: validated.title,
+        content: validated.content,
+        adminId: req.user.id,
+      },
+      include: {
+        admin: { select: { id: true, firstName: true, lastName: true } },
+      },
+    });
+
+    const students = await prisma.user.findMany({
+      where: { role: 'APPRENANT', status: 'ACTIF' },
+      select: { id: true },
+    });
+
+    if (students.length > 0) {
+      await prisma.notification.createMany({
+        data: students.map((s) => ({
+          userId: s.id,
+          type: 'ANNONCE' as const,
+          title: validated.title,
+          message: validated.content,
+        })),
+      });
+    }
+
+    res.status(201).json({ message: 'Annonce publiée avec succès', announcement });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Erreur de validation', details: error.errors });
+      return;
+    }
+    logger.error('Erreur createAnnouncement:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+};
+
+export const deleteAnnouncement = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const announcement = await prisma.announcement.findUnique({ where: { id: parseInt(id) } });
+
+    if (!announcement) {
+      res.status(404).json({ error: 'Annonce non trouvée' });
+      return;
+    }
+
+    await prisma.announcement.delete({ where: { id: parseInt(id) } });
+    res.json({ message: 'Annonce supprimée avec succès' });
+  } catch (error) {
+    logger.error('Erreur deleteAnnouncement:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+};

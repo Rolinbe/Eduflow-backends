@@ -24,6 +24,9 @@ import {
   getAdminNotifications,
   markAdminNotificationRead,
   markAllAdminNotificationsRead,
+  getAnnouncements,
+  createAnnouncement,
+  deleteAnnouncement,
 } from '../controllers/adminController';
 import { authenticate, adminOnly } from '../middleware/auth';
 import { uploadVideo as uploadVideoMiddleware, uploadPdf as uploadPdfMiddleware, handleMulterError } from '../middleware/upload';
@@ -70,5 +73,10 @@ router.get('/users/:id/progression', getUserProgression);
 router.get('/notifications', getAdminNotifications);
 router.patch('/notifications/:id/read', markAdminNotificationRead);
 router.patch('/notifications/read-all', markAllAdminNotificationsRead);
+
+// Announcements
+router.get('/announcements', getAnnouncements);
+router.post('/announcements', createAnnouncement);
+router.delete('/announcements/:id', deleteAnnouncement);
 
 export default router;

@@ -19,6 +19,7 @@ import {
   getMyCertificates,
   verifyCertificate,
   getCategories,
+  getAnnouncements,
 } from '../controllers/apprenantController';
 import { authenticate } from '../middleware/auth';
 
@@ -58,5 +59,8 @@ router.get('/cours/:id/certificate', getCertificate);
 
 // Categories
 router.get('/categories', getCategories);
+
+// Announcements
+router.get('/announcements', getAnnouncements);
 
 export default router;

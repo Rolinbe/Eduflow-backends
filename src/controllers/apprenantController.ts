@@ -1050,3 +1050,19 @@ export const getCategories = async (req: AuthRequest, res: Response): Promise<vo
     res.status(500).json({ error: 'Erreur interne du serveur' });
   }
 };
+
+export const getAnnouncements = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const announcements = await prisma.announcement.findMany({
+      include: {
+        admin: { select: { id: true, firstName: true, lastName: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+    res.json({ announcements });
+  } catch (error) {
+    logger.error('Erreur getAnnouncements:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+};
