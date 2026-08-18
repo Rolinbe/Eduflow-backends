@@ -21,8 +21,8 @@ const createCoursSchema = z.object({
   description: z.string().optional(),
   categoryId: z.number().int().positive().optional(),
   status: z.enum(['PUBLIE', 'BROUILLON', 'ARCHIVE']).optional(),
-  niveau: niveauEnum.optional(),
-  serie: serieEnum.optional(),
+  niveau: niveauEnum.nullable().optional(),
+  serie: serieEnum.nullable().optional(),
 });
 
 const updateCoursSchema = z.object({

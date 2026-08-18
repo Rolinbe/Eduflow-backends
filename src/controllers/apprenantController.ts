@@ -39,7 +39,6 @@ export const getAvailableCours = async (req: AuthRequest, res: Response): Promis
       limit = '20',
       category,
       search,
-      niveau,
     } = req.query;
 
     const pageNum = Math.max(1, parseInt(page as string));
@@ -54,15 +53,34 @@ export const getAvailableCours = async (req: AuthRequest, res: Response): Promis
       where.categoryId = parseInt(category as string);
     }
 
-    if (niveau) {
-      where.niveau = niveau as string;
-    }
-
     if (search) {
       where.OR = [
         { title: { contains: search as string } },
         { description: { contains: search as string } },
       ];
+    }
+
+    if (req.user) {
+      const student = await prisma.user.findUnique({
+        where: { id: req.user.id },
+        select: { niveau: true, serie: true },
+      });
+
+      if (student?.niveau) {
+        if (student.niveau === 'PREMIERE' || student.niveau === 'TERMINALE') {
+          where.AND = [
+            { niveau: student.niveau },
+            {
+              OR: [
+                { serie: student.serie },
+                { serie: null },
+              ],
+            },
+          ];
+        } else {
+          where.niveau = student.niveau;
+        }
+      }
     }
 
     const [courses, total] = await Promise.all([
