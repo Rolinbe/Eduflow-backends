@@ -163,12 +163,25 @@ export const getUnreadCount = async (req: AuthRequest, res: Response): Promise<v
 
 export const getAllStudents = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    if (!req.user || req.user.role !== 'ADMIN') {
+    if (!req.user || (req.user.role !== 'ADMIN' && req.user.role !== 'MENTOR')) {
       res.status(403).json({ error: 'Accès interdit' }); return;
     }
 
+    const where: any = { role: 'APPRENANT' };
+
+    // Mentors only see students in their niveau
+    if (req.user.role === 'MENTOR') {
+      const mentor = await prisma.user.findUnique({
+        where: { id: req.user.id },
+        select: { niveauResponsable: true },
+      });
+      if (mentor?.niveauResponsable) {
+        where.niveau = mentor.niveauResponsable;
+      }
+    }
+
     const students = await prisma.user.findMany({
-      where: { role: 'APPRENANT' },
+      where,
       select: { id: true, firstName: true, lastName: true, email: true, avatar: true },
       orderBy: { firstName: 'asc' },
     });

@@ -67,4 +67,7 @@ export const authorize = (...roles: string[]) => {
 };
 
 export const adminOnly = authorize('ADMIN');
+export const mentorOnly = authorize('MENTOR');
 export const apprenantOrAdmin = authorize('APPRENANT', 'ADMIN');
+export const mentorOrAdmin = authorize('MENTOR', 'ADMIN');
+export const allRoles = authorize('ADMIN', 'APPRENANT', 'MENTOR');

@@ -12,6 +12,7 @@ import winston from 'winston';
 import authRoutes from './routes/auth.routes';
 import adminRoutes from './routes/admin.routes';
 import apprenantRoutes from './routes/apprenant.routes';
+import mentorRoutes from './routes/mentor.routes';
 import chatRoutes from './routes/chat.routes';
 import { initSocket } from './socket/chatSocket';
 
@@ -79,6 +80,7 @@ app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/apprenant', apprenantRoutes);
+app.use('/api/mentor', mentorRoutes);
 app.use('/api/chat', chatRoutes);
 
 // Health check

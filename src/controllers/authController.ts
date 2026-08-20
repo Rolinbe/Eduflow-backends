@@ -18,6 +18,8 @@ const logger = winston.createLogger({
 const niveauEnum = z.enum(['SIXIEME', 'CINQUIEME', 'QUATRIEME', 'TROISIEME', 'SECONDE', 'PREMIERE', 'TERMINALE']);
 const serieEnum = z.enum(['S', 'L', 'OSE']);
 
+const roleEnum = z.enum(['APPRENANT', 'MENTOR']);
+
 const registerSchema = z.object({
   firstName: z.string().min(2, 'Le prénom doit contenir au moins 2 caractères'),
   lastName: z.string().min(2, 'Le nom doit contenir au moins 2 caractères'),
@@ -28,8 +30,11 @@ const registerSchema = z.object({
     .regex(/[A-Z]/, 'Le mot de passe doit contenir au moins une majuscule')
     .regex(/[a-z]/, 'Le mot de passe doit contenir au moins une minuscule')
     .regex(/[0-9]/, 'Le mot de passe doit contenir au moins un chiffre'),
+  role: roleEnum.optional(),
   niveau: niveauEnum.optional(),
   serie: serieEnum.optional(),
+  niveauResponsable: niveauEnum.optional(),
+  serieResponsable: serieEnum.optional(),
 }).refine((data) => {
   if ((data.niveau === 'TERMINALE' || data.niveau === 'PREMIERE') && !data.serie) return false;
   return true;
@@ -37,7 +42,19 @@ const registerSchema = z.object({
 .refine((data) => {
   if (data.niveau && data.niveau !== 'TERMINALE' && data.niveau !== 'PREMIERE' && data.serie) return false;
   return true;
-}, { message: 'La série n\'est applicable que pour la Terminale et la Première', path: ['serie'] });
+}, { message: 'La série n\'est applicable que pour la Terminale et la Première', path: ['serie'] })
+.refine((data) => {
+  if (data.role === 'MENTOR' && !data.niveauResponsable) return false;
+  return true;
+}, { message: 'Le niveau responsable est requis pour les mentors', path: ['niveauResponsable'] })
+.refine((data) => {
+  if (data.role === 'MENTOR' && (data.niveauResponsable === 'PREMIERE' || data.niveauResponsable === 'TERMINALE') && !data.serieResponsable) return false;
+  return true;
+}, { message: 'La série est requise pour les mentors de Première ou Terminale', path: ['serieResponsable'] })
+.refine((data) => {
+  if (data.role === 'MENTOR' && data.niveauResponsable && data.niveauResponsable !== 'PREMIERE' && data.niveauResponsable !== 'TERMINALE' && data.serieResponsable) return false;
+  return true;
+}, { message: 'La série n\'est applicable que pour la Première et la Terminale', path: ['serieResponsable'] });
 
 const loginSchema = z.object({
   email: z.string().email('Email invalide'),
@@ -95,16 +112,20 @@ export const register = async (req: AuthRequest, res: Response): Promise<void> =
 
     const hashedPassword = await bcrypt.hash(validated.password, 12);
 
+    const userRole = validated.role === 'MENTOR' ? 'MENTOR' : 'APPRENANT';
+
     const user = await prisma.user.create({
       data: {
         firstName: validated.firstName,
         lastName: validated.lastName,
         email: validated.email,
         password: hashedPassword,
-        role: 'APPRENANT',
+        role: userRole,
         status: 'ACTIF',
         niveau: validated.niveau || null,
         serie: (validated.niveau === 'TERMINALE' || validated.niveau === 'PREMIERE') ? validated.serie : null,
+        niveauResponsable: userRole === 'MENTOR' ? validated.niveauResponsable || null : null,
+        serieResponsable: userRole === 'MENTOR' && (validated.niveauResponsable === 'PREMIERE' || validated.niveauResponsable === 'TERMINALE') ? validated.serieResponsable || null : null,
       },
       select: {
         id: true,
@@ -115,6 +136,8 @@ export const register = async (req: AuthRequest, res: Response): Promise<void> =
         status: true,
         niveau: true,
         serie: true,
+        niveauResponsable: true,
+        serieResponsable: true,
         createdAt: true,
       },
     });
@@ -145,8 +168,8 @@ export const register = async (req: AuthRequest, res: Response): Promise<void> =
         data: admins.map((admin) => ({
           userId: admin.id,
           type: 'INFO' as const,
-          title: 'Nouvel apprenant inscrit',
-          message: `${user.firstName} ${user.lastName} vient de créer un compte (${user.email})`,
+          title: userRole === 'MENTOR' ? 'Nouveau mentor inscrit' : 'Nouvel apprenant inscrit',
+          message: `${user.firstName} ${user.lastName} vient de créer un compte ${userRole === 'MENTOR' ? '(Mentor)' : '(Apprenant)'} (${user.email})`,
         })),
       });
     }
@@ -486,6 +509,8 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
         status: true,
         niveau: true,
         serie: true,
+        niveauResponsable: true,
+        serieResponsable: true,
         avatar: true,
         lastLogin: true,
         createdAt: true,
@@ -547,6 +572,8 @@ export const updateMe = async (req: AuthRequest, res: Response): Promise<void> =
         status: true,
         niveau: true,
         serie: true,
+        niveauResponsable: true,
+        serieResponsable: true,
         avatar: true,
         createdAt: true,
         updatedAt: true,

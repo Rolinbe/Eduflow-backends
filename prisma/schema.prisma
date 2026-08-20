@@ -10,6 +10,7 @@ datasource db {
 enum UserRole {
   ADMIN
   APPRENANT
+  MENTOR
 }
 
 enum UserStatus {
@@ -68,9 +69,11 @@ model User {
   password      String    @db.VarChar(255)
   role          UserRole  @default(APPRENANT)
   status        UserStatus @default(ACTIF)
-  niveau        Niveau?
-  serie         Serie?
-  avatar        String?   @db.VarChar(500)
+  niveau              Niveau?
+  serie               Serie?
+  niveauResponsable   Niveau?    @map("niveau_responsable")
+  serieResponsable    Serie?     @map("serie_responsable")
+  avatar              String?    @db.VarChar(500)
   lastLogin     DateTime? @map("last_login")
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
