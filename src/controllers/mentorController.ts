@@ -1,9 +1,8 @@
 import { Response } from 'express';
 import { z } from 'zod';
-import path from 'path';
-import fs from 'fs';
 import prisma from '../config/prisma';
 import { AuthRequest } from '../types';
+import { cloudinary } from '../middleware/upload';
 import winston from 'winston';
 
 const logger = winston.createLogger({
@@ -11,6 +10,11 @@ const logger = winston.createLogger({
   format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
   transports: [new winston.transports.Console()],
 });
+
+const extractCloudinaryPublicId = (url: string, resourceType: string): string | null => {
+  const match = url.match(new RegExp(`${resourceType}/upload/(?:v\\d+/)?(.+?)(?:\\.[^.]+)?$`));
+  return match ? match[1] : null;
+};
 
 const niveauEnum = z.enum(['SIXIEME', 'CINQUIEME', 'QUATRIEME', 'TROISIEME', 'SECONDE', 'PREMIERE', 'TERMINALE']);
 const serieEnum = z.enum(['S', 'L', 'OSE']);
@@ -494,7 +498,7 @@ export const uploadVideo = async (req: AuthRequest, res: Response): Promise<void
       data: {
         title: req.body.title || file.originalname,
         description: req.body.description || null,
-        url: `videos/${file.filename}`,
+        url: file.path,
         duration: req.body.duration ? parseInt(req.body.duration) : 0,
         position: req.body.position ? parseInt(req.body.position) : nextPosition,
         isRequired: req.body.isRequired !== 'false',
@@ -537,9 +541,10 @@ export const deleteVideo = async (req: AuthRequest, res: Response): Promise<void
     if (!video) { res.status(404).json({ error: 'Vidéo non trouvée' }); return; }
     if (!(await hasAccessToCourse(req.user.id, video.courseId))) { res.status(403).json({ error: 'Accès interdit' }); return; }
 
-    const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
-    const filePath = path.join(UPLOAD_DIR, video.url);
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    const publicId = extractCloudinaryPublicId(video.url, 'video');
+    if (publicId) {
+      await cloudinary.uploader.destroy(publicId, { resource_type: 'video' });
+    }
 
     await prisma.video.delete({ where: { id: videoId } });
     res.json({ message: 'Vidéo supprimée avec succès' });
@@ -586,7 +591,7 @@ export const uploadPdf = async (req: AuthRequest, res: Response): Promise<void> 
       data: {
         title: req.body.title || file.originalname,
         description: req.body.description || null,
-        url: `pdfs/${file.filename}`,
+        url: file.path,
         pageCount: req.body.pageCount ? parseInt(req.body.pageCount) : 0,
         position: req.body.position ? parseInt(req.body.position) : nextPosition,
         courseId,
@@ -628,9 +633,10 @@ export const deletePdf = async (req: AuthRequest, res: Response): Promise<void> 
     if (!pdf) { res.status(404).json({ error: 'PDF non trouvé' }); return; }
     if (!(await hasAccessToCourse(req.user.id, pdf.courseId))) { res.status(403).json({ error: 'Accès interdit' }); return; }
 
-    const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
-    const filePath = path.join(UPLOAD_DIR, pdf.url);
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    const publicId = extractCloudinaryPublicId(pdf.url, 'raw');
+    if (publicId) {
+      await cloudinary.uploader.destroy(publicId, { resource_type: 'raw' });
+    }
 
     await prisma.pDF.delete({ where: { id: pdfId } });
     res.json({ message: 'PDF supprimé avec succès' });

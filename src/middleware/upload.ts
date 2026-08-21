@@ -1,39 +1,49 @@
+import { v2 as cloudinary } from 'cloudinary';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import multer from 'multer';
-import path from 'path';
-import crypto from 'crypto';
 import { Request } from 'express';
 
-const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
-const storage = multer.diskStorage({
-  destination: (req: Request, file: Express.Multer.File, cb) => {
-    let subDir = 'others';
-    if (file.mimetype.startsWith('video/')) {
-      subDir = 'videos';
-    } else if (file.mimetype === 'application/pdf') {
-      subDir = 'pdfs';
-    } else if (file.mimetype.startsWith('image/')) {
-      subDir = 'images';
-    }
-    cb(null, path.join(UPLOAD_DIR, subDir));
-  },
-  filename: (req: Request, file: Express.Multer.File, cb) => {
-    const uniqueId = crypto.randomUUID();
-    const ext = path.extname(file.originalname);
-    cb(null, `${uniqueId}${ext}`);
-  },
+const videoStorage = new CloudinaryStorage({
+  cloudinary,
+  params: async (req: Request, file: Express.Multer.File) => ({
+    folder: 'eduflow/videos',
+    resource_type: 'video',
+    public_id: `${Date.now()}-${file.originalname.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_')}`,
+  }),
+});
+
+const pdfStorage = new CloudinaryStorage({
+  cloudinary,
+  params: async (req: Request, file: Express.Multer.File) => ({
+    folder: 'eduflow/pdfs',
+    resource_type: 'raw',
+    public_id: `${Date.now()}-${file.originalname.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_')}`,
+  }),
+});
+
+const imageStorage = new CloudinaryStorage({
+  cloudinary,
+  params: async (req: Request, file: Express.Multer.File) => ({
+    folder: 'eduflow/images',
+    resource_type: 'image',
+    public_id: `${Date.now()}-${file.originalname.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_')}`,
+  }),
 });
 
 const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  const allowedMimes = {
-    video: ['video/mp4', 'video/mpeg', 'video/quicktime', 'video/webm'],
-    pdf: ['application/pdf'],
-    image: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
-  };
+  const allowedMimes = [
+    'video/mp4', 'video/mpeg', 'video/quicktime', 'video/webm',
+    'application/pdf',
+    'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+  ];
 
-  const allAllowed = [...allowedMimes.video, ...allowedMimes.pdf, ...allowedMimes.image];
-
-  if (allAllowed.includes(file.mimetype)) {
+  if (allowedMimes.includes(file.mimetype)) {
     cb(null, true);
   } else {
     cb(new Error(`Type de fichier non supporté: ${file.mimetype}`));
@@ -41,28 +51,30 @@ const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilt
 };
 
 export const uploadVideo = multer({
-  storage,
+  storage: videoStorage,
   fileFilter,
   limits: {
-    fileSize: parseInt(process.env.MAX_VIDEO_SIZE || '524288000'), // 500MB
+    fileSize: parseInt(process.env.MAX_VIDEO_SIZE || '524288000'),
   },
 });
 
 export const uploadPdf = multer({
-  storage,
+  storage: pdfStorage,
   fileFilter,
   limits: {
-    fileSize: parseInt(process.env.MAX_PDF_SIZE || '20971520'), // 20MB
+    fileSize: parseInt(process.env.MAX_PDF_SIZE || '20971520'),
   },
 });
 
 export const uploadImage = multer({
-  storage,
+  storage: imageStorage,
   fileFilter,
   limits: {
-    fileSize: parseInt(process.env.MAX_IMAGE_SIZE || '5242880'), // 5MB
+    fileSize: parseInt(process.env.MAX_IMAGE_SIZE || '5242880'),
   },
 });
+
+export { cloudinary };
 
 export const handleMulterError = (err: any, req: Request, res: any, next: any) => {
   if (err instanceof multer.MulterError) {

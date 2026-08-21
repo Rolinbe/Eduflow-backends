@@ -1,10 +1,9 @@
 import { Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
-import path from 'path';
-import fs from 'fs';
 import prisma from '../config/prisma';
 import { AuthRequest } from '../types';
+import { cloudinary } from '../middleware/upload';
 import winston from 'winston';
 
 const logger = winston.createLogger({
@@ -12,6 +11,11 @@ const logger = winston.createLogger({
   format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
   transports: [new winston.transports.Console()],
 });
+
+const extractCloudinaryPublicId = (url: string, resourceType: string): string | null => {
+  const match = url.match(new RegExp(`${resourceType}/upload/(?:v\\d+/)?(.+?)(?:\\.[^.]+)?$`));
+  return match ? match[1] : null;
+};
 
 const niveauEnum = z.enum(['SIXIEME', 'CINQUIEME', 'QUATRIEME', 'TROISIEME', 'SECONDE', 'PREMIERE', 'TERMINALE']);
 const serieEnum = z.enum(['S', 'L', 'OSE']);
@@ -333,21 +337,19 @@ export const deleteCours = async (req: AuthRequest, res: Response): Promise<void
     }
 
     // Delete associated files
-    const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
-
     if (course.coverImage) {
-      const filePath = path.join(UPLOAD_DIR, course.coverImage);
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      const publicId = extractCloudinaryPublicId(course.coverImage, 'image');
+      if (publicId) await cloudinary.uploader.destroy(publicId, { resource_type: 'image' }).catch(() => {});
     }
 
     for (const video of course.videos) {
-      const filePath = path.join(UPLOAD_DIR, video.url);
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      const publicId = extractCloudinaryPublicId(video.url, 'video');
+      if (publicId) await cloudinary.uploader.destroy(publicId, { resource_type: 'video' }).catch(() => {});
     }
 
     for (const pdf of course.pdfs) {
-      const filePath = path.join(UPLOAD_DIR, pdf.url);
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      const publicId = extractCloudinaryPublicId(pdf.url, 'raw');
+      if (publicId) await cloudinary.uploader.destroy(publicId, { resource_type: 'raw' }).catch(() => {});
     }
 
     await prisma.cours.delete({
@@ -420,7 +422,7 @@ export const uploadVideo = async (req: AuthRequest, res: Response): Promise<void
     const videoData = {
       title: req.body.title || file.originalname,
       description: req.body.description || null,
-      url: `videos/${file.filename}`,
+      url: file.path,
       duration: req.body.duration ? parseInt(req.body.duration) : 0,
       position: req.body.position ? parseInt(req.body.position) : nextPosition,
       isRequired: req.body.isRequired !== 'false',
@@ -481,11 +483,10 @@ export const deleteVideo = async (req: AuthRequest, res: Response): Promise<void
       return;
     }
 
-    // Delete file
-    const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
-    const filePath = path.join(UPLOAD_DIR, video.url);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+    // Delete from Cloudinary
+    const publicId = extractCloudinaryPublicId(video.url, 'video');
+    if (publicId) {
+      await cloudinary.uploader.destroy(publicId, { resource_type: 'video' });
     }
 
     await prisma.video.delete({
@@ -561,7 +562,7 @@ export const uploadPdf = async (req: AuthRequest, res: Response): Promise<void> 
     const pdfData = {
       title: req.body.title || file.originalname,
       description: req.body.description || null,
-      url: `pdfs/${file.filename}`,
+      url: file.path,
       pageCount: req.body.pageCount ? parseInt(req.body.pageCount) : 0,
       position: req.body.position ? parseInt(req.body.position) : nextPosition,
       courseId: parseInt(id),
@@ -621,10 +622,10 @@ export const deletePdf = async (req: AuthRequest, res: Response): Promise<void> 
       return;
     }
 
-    const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
-    const filePath = path.join(UPLOAD_DIR, pdf.url);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+    // Delete from Cloudinary
+    const publicId = extractCloudinaryPublicId(pdf.url, 'raw');
+    if (publicId) {
+      await cloudinary.uploader.destroy(publicId, { resource_type: 'raw' });
     }
 
     await prisma.pDF.delete({
