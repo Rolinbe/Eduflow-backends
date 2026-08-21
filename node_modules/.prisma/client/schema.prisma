@@ -53,6 +53,9 @@ enum Niveau {
   SECONDE
   PREMIERE
   TERMINALE
+  LICENCE
+  MASTER
+  DOCTORAT
 }
 
 enum Serie {
