@@ -36,7 +36,7 @@ export function initSocket(httpServer: HttpServer) {
       return next(new Error('Token requis'));
     }
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'eduflow-secret-key') as { id: number; role: string };
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'edukaflow-secret-key') as { id: number; role: string };
       (socket as any).userId = decoded.id;
       (socket as any).userRole = decoded.role;
       next();

@@ -12,7 +12,7 @@ cloudinary.config({
 const videoStorage = new CloudinaryStorage({
   cloudinary,
   params: async (req: Request, file: Express.Multer.File) => ({
-    folder: 'eduflow/videos',
+    folder: 'edukaflow/videos',
     resource_type: 'video',
     public_id: `${Date.now()}-${file.originalname.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_')}`,
   }),
@@ -21,7 +21,7 @@ const videoStorage = new CloudinaryStorage({
 const pdfStorage = new CloudinaryStorage({
   cloudinary,
   params: async (req: Request, file: Express.Multer.File) => ({
-    folder: 'eduflow/pdfs',
+    folder: 'edukaflow/pdfs',
     resource_type: 'raw',
     public_id: `${Date.now()}-${file.originalname.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_')}`,
   }),
@@ -30,7 +30,7 @@ const pdfStorage = new CloudinaryStorage({
 const imageStorage = new CloudinaryStorage({
   cloudinary,
   params: async (req: Request, file: Express.Multer.File) => ({
-    folder: 'eduflow/images',
+    folder: 'edukaflow/images',
     resource_type: 'image',
     public_id: `${Date.now()}-${file.originalname.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_')}`,
   }),

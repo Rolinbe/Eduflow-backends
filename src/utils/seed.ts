@@ -32,7 +32,7 @@ async function main() {
     data: {
       firstName: 'Admin',
       lastName: 'EdukaFlow',
-      email: 'admin@eduflow.com',
+      email: 'admin@edukaflow.com',
       password,
       role: 'ADMIN',
       status: 'ACTIF',
@@ -535,7 +535,7 @@ async function main() {
   console.log('✅ Seeding terminé avec succès !');
   console.log('');
   console.log('👤 Comptes créés:');
-  console.log('   Admin:     admin@eduflow.com / Password123');
+  console.log('   Admin:     admin@edukaflow.com / Password123');
   console.log('   Student 1: alex@example.com / Password123');
   console.log('   Student 2: sarah.j@example.com / Password123');
   console.log('   Student 3: marc.d@example.com / Password123');
