@@ -110,7 +110,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 });
 
 httpServer.listen(PORT, () => {
-  logger.info(`🚀 EduFlow Backend running on port ${PORT}`);
+  logger.info(`🚀 EdukaFlow Backend running on port ${PORT}`);
   logger.info(`📚 API: http://localhost:${PORT}/api`);
   logger.info(`🔌 Socket.io ready on port ${PORT}`);
   logger.info(`❤️  Health: http://localhost:${PORT}/api/health`);

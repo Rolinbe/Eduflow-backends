@@ -17,7 +17,7 @@ const extractCloudinaryPublicId = (url: string, resourceType: string): string | 
   return match ? match[1] : null;
 };
 
-const niveauEnum = z.enum(['SIXIEME', 'CINQUIEME', 'QUATRIEME', 'TROISIEME', 'SECONDE', 'PREMIERE', 'TERMINALE']);
+const niveauEnum = z.enum(['SIXIEME', 'CINQUIEME', 'QUATRIEME', 'TROISIEME', 'SECONDE', 'PREMIERE', 'TERMINALE', 'LICENCE', 'MASTER', 'DOCTORAT']);
 const serieEnum = z.enum(['S', 'L', 'OSE']);
 
 const createCoursSchema = z.object({

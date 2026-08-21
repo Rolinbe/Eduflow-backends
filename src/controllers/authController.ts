@@ -190,7 +190,7 @@ export const register = async (req: AuthRequest, res: Response): Promise<void> =
 
     // Only send welcome email for real email addresses
     if (!user.email.endsWith('@eduflow.local')) {
-      await sendEmail(user.email, 'Bienvenue sur EduFlow', generateWelcomeEmail(user.firstName));
+      await sendEmail(user.email, 'Bienvenue sur EdukaFlow', generateWelcomeEmail(user.firstName));
     }
 
     res.status(201).json({
@@ -386,7 +386,7 @@ export const forgotPassword = async (req: AuthRequest, res: Response): Promise<v
 
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
 
-    await sendEmail(user.email, 'Réinitialisation de mot de passe - EduFlow', generateResetEmail(resetUrl));
+    await sendEmail(user.email, 'Réinitialisation de mot de passe - EdukaFlow', generateResetEmail(resetUrl));
 
     res.json({ message: 'Si cet email existe, un lien de réinitialisation a été envoyé' });
   } catch (error) {

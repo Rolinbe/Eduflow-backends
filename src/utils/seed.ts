@@ -31,7 +31,7 @@ async function main() {
   const admin = await prisma.user.create({
     data: {
       firstName: 'Admin',
-      lastName: 'EduFlow',
+      lastName: 'EdukaFlow',
       email: 'admin@eduflow.com',
       password,
       role: 'ADMIN',
@@ -456,7 +456,7 @@ async function main() {
       userId: alex.id,
       type: 'SUCCES',
       title: 'Bienvenue',
-      message: 'Bienvenue sur EduFlow ! Commencez à apprendre.',
+      message: 'Bienvenue sur EdukaFlow ! Commencez à apprendre.',
     },
   });
 

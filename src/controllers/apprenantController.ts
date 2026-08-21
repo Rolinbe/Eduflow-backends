@@ -450,7 +450,7 @@ export const updateVideoProgress = async (req: AuthRequest, res: Response): Prom
         if (user) {
           await sendEmail(
             user.email,
-            'Certificat obtenu - EduFlow',
+            'Certificat obtenu - EdukaFlow',
             generateCertificateEmail(user.firstName, cours?.title || '', uniqueNumber)
           );
         }

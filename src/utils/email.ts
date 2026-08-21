@@ -21,7 +21,7 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
 
 export function generateResetEmail(resetUrl: string): string {
   return `
-    <h1>Réinitialisation de mot de passe - EduFlow</h1>
+    <h1>Réinitialisation de mot de passe - EdukaFlow</h1>
     <p>Vous avez demandé la réinitialisation de votre mot de passe.</p>
     <p>Cliquez sur le lien ci-dessous pour créer un nouveau mot de passe :</p>
     <a href="${resetUrl}" style="background:#4F46E5;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;">
@@ -34,7 +34,7 @@ export function generateResetEmail(resetUrl: string): string {
 
 export function generateWelcomeEmail(firstName: string): string {
   return `
-    <h1>Bienvenue sur EduFlow, ${firstName} !</h1>
+    <h1>Bienvenue sur EdukaFlow, ${firstName} !</h1>
     <p>Votre compte a été créé avec succès.</p>
     <p>Vous pouvez maintenant vous connecter et commencer à apprendre.</p>
     <p>Bon courage dans vos apprentissages !</p>
