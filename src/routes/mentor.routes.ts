@@ -19,6 +19,11 @@ import {
   reorderPdfs,
   getMentorStudentsForChat,
 } from '../controllers/mentorController';
+import {
+  getNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+} from '../controllers/apprenantController';
 import { authenticate, mentorOnly } from '../middleware/auth';
 import { uploadVideo as uploadVideoMiddleware, uploadPdf as uploadPdfMiddleware, handleMulterError } from '../middleware/upload';
 
@@ -49,5 +54,9 @@ router.delete('/pdfs/:pdfId', deletePdf);
 router.put('/cours/:courseId/pdfs/reorder', reorderPdfs);
 
 router.get('/chat/students', getMentorStudentsForChat);
+
+router.get('/notifications', getNotifications);
+router.patch('/notifications/:id/read', markNotificationRead);
+router.patch('/notifications/read-all', markAllNotificationsRead);
 
 export default router;

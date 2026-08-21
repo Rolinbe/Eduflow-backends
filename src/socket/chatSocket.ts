@@ -95,10 +95,28 @@ export function initSocket(httpServer: HttpServer) {
           const recipientId = conversation.participant1Id === userId
             ? conversation.participant2Id
             : conversation.participant1Id;
+
           io.to(`user:${recipientId}`).emit('new-message-notification', {
             message,
             conversationId: data.conversationId,
           });
+
+          const sender = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { firstName: true, lastName: true, role: true },
+          });
+
+          if (sender) {
+            const roleLabel = sender.role === 'MENTOR' ? 'votre mentor' : sender.role === 'ADMIN' ? 'l\'administration' : 'votre élève';
+            await prisma.notification.create({
+              data: {
+                userId: recipientId,
+                type: 'INFO',
+                title: 'Nouveau message',
+                message: `${sender.firstName} ${sender.lastName} (${roleLabel}) vous a envoyé un message.`,
+              },
+            });
+          }
         }
       } catch (error) {
         socket.emit('error', { message: 'Erreur lors de l\'envoi du message' });
