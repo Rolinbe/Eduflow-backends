@@ -1,5 +1,7 @@
 import { Response } from 'express';
 import { z } from 'zod';
+import path from 'path';
+import fs from 'fs';
 import prisma from '../config/prisma';
 import { AuthRequest } from '../types';
 import winston from 'winston';
@@ -396,6 +398,265 @@ export const updateCourseStatus = async (req: AuthRequest, res: Response): Promi
       return;
     }
     logger.error('Erreur updateCourseStatus mentor:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+};
+
+export const getCourseDetail = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ error: 'Non authentifié' }); return; }
+    const courseId = parseInt(req.params.courseId);
+
+    const course = await prisma.cours.findUnique({
+      where: { id: courseId },
+      include: {
+        admin: { select: { id: true, firstName: true, lastName: true } },
+        category: { select: { id: true, name: true } },
+        videos: { orderBy: { position: 'asc' } },
+        pdfs: { orderBy: { position: 'asc' } },
+        _count: { select: { videos: true, pdfs: true, enrollments: true } },
+      },
+    });
+
+    if (!course) { res.status(404).json({ error: 'Cours non trouvé' }); return; }
+
+    const isOwn = course.adminId === req.user.id;
+    let isAdminMatching = false;
+
+    if (!isOwn) {
+      const mentor = await prisma.user.findUnique({
+        where: { id: req.user.id },
+        select: { niveauResponsable: true, serieResponsable: true },
+      });
+      if (mentor?.niveauResponsable) {
+        isAdminMatching = course.niveau === mentor.niveauResponsable &&
+          ((course.niveau === 'PREMIERE' || course.niveau === 'TERMINALE') && mentor.serieResponsable
+            ? course.serie === mentor.serieResponsable
+            : true);
+      }
+    }
+
+    if (!isOwn && !isAdminMatching) { res.status(403).json({ error: 'Accès interdit' }); return; }
+
+    res.json({ course, isOwn });
+  } catch (error) {
+    logger.error('Erreur getCourseDetail mentor:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+};
+
+const hasAccessToCourse = async (mentorId: number, courseId: number): Promise<boolean> => {
+  const course = await prisma.cours.findUnique({ where: { id: courseId }, select: { adminId: true, niveau: true, serie: true } });
+  if (!course) return false;
+  if (course.adminId === mentorId) return true;
+
+  const mentor = await prisma.user.findUnique({ where: { id: mentorId }, select: { niveauResponsable: true, serieResponsable: true } });
+  if (!mentor?.niveauResponsable) return false;
+  if (course.niveau !== mentor.niveauResponsable) return false;
+  if ((course.niveau === 'PREMIERE' || course.niveau === 'TERMINALE') && mentor.serieResponsable) {
+    return course.serie === mentor.serieResponsable;
+  }
+  return true;
+};
+
+const uploadVideoSchema = z.object({
+  title: z.string().min(1).optional(),
+  description: z.string().optional(),
+  duration: z.number().int().min(0).optional(),
+  position: z.number().int().min(0).optional(),
+  isRequired: z.boolean().optional(),
+});
+
+const uploadPdfSchema = z.object({
+  title: z.string().min(1).optional(),
+  description: z.string().optional(),
+  pageCount: z.number().int().min(0).optional(),
+  position: z.number().int().min(0).optional(),
+});
+
+const reorderSchema = z.object({
+  items: z.array(z.object({ id: z.number(), position: z.number() })),
+});
+
+export const uploadVideo = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ error: 'Non authentifié' }); return; }
+    const courseId = parseInt(req.params.courseId);
+    const file = req.file;
+
+    if (!file) { res.status(400).json({ error: 'Fichier vidéo requis' }); return; }
+    if (!(await hasAccessToCourse(req.user.id, courseId))) { res.status(403).json({ error: 'Accès interdit' }); return; }
+
+    const maxPosition = await prisma.video.aggregate({ where: { courseId }, _max: { position: true } });
+    const nextPosition = (maxPosition._max.position ?? -1) + 1;
+
+    const video = await prisma.video.create({
+      data: {
+        title: req.body.title || file.originalname,
+        description: req.body.description || null,
+        url: `videos/${file.filename}`,
+        duration: req.body.duration ? parseInt(req.body.duration) : 0,
+        position: req.body.position ? parseInt(req.body.position) : nextPosition,
+        isRequired: req.body.isRequired !== 'false',
+        courseId,
+      },
+    });
+
+    res.status(201).json({ message: 'Vidéo uploadée avec succès', video });
+  } catch (error) {
+    logger.error('Erreur uploadVideo mentor:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+};
+
+export const updateVideo = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ error: 'Non authentifié' }); return; }
+    const videoId = parseInt(req.params.videoId);
+    const validated = uploadVideoSchema.partial().parse(req.body);
+
+    const video = await prisma.video.findUnique({ where: { id: videoId } });
+    if (!video) { res.status(404).json({ error: 'Vidéo non trouvée' }); return; }
+    if (!(await hasAccessToCourse(req.user.id, video.courseId))) { res.status(403).json({ error: 'Accès interdit' }); return; }
+
+    const updated = await prisma.video.update({ where: { id: videoId }, data: validated });
+    res.json({ message: 'Vidéo mise à jour', video: updated });
+  } catch (error) {
+    if (error instanceof z.ZodError) { res.status(400).json({ error: 'Erreur de validation', details: error.errors }); return; }
+    logger.error('Erreur updateVideo mentor:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+};
+
+export const deleteVideo = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ error: 'Non authentifié' }); return; }
+    const videoId = parseInt(req.params.videoId);
+
+    const video = await prisma.video.findUnique({ where: { id: videoId } });
+    if (!video) { res.status(404).json({ error: 'Vidéo non trouvée' }); return; }
+    if (!(await hasAccessToCourse(req.user.id, video.courseId))) { res.status(403).json({ error: 'Accès interdit' }); return; }
+
+    const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
+    const filePath = path.join(UPLOAD_DIR, video.url);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+
+    await prisma.video.delete({ where: { id: videoId } });
+    res.json({ message: 'Vidéo supprimée avec succès' });
+  } catch (error) {
+    logger.error('Erreur deleteVideo mentor:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+};
+
+export const reorderVideos = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ error: 'Non authentifié' }); return; }
+    const courseId = parseInt(req.params.courseId);
+    const validated = reorderSchema.parse(req.body);
+
+    if (!(await hasAccessToCourse(req.user.id, courseId))) { res.status(403).json({ error: 'Accès interdit' }); return; }
+
+    await Promise.all(validated.items.map((item) =>
+      prisma.video.updateMany({ where: { id: item.id, courseId }, data: { position: item.position } })
+    ));
+
+    const videos = await prisma.video.findMany({ where: { courseId }, orderBy: { position: 'asc' } });
+    res.json({ message: 'Ordre mis à jour', videos });
+  } catch (error) {
+    if (error instanceof z.ZodError) { res.status(400).json({ error: 'Erreur de validation', details: error.errors }); return; }
+    logger.error('Erreur reorderVideos mentor:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+};
+
+export const uploadPdf = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ error: 'Non authentifié' }); return; }
+    const courseId = parseInt(req.params.courseId);
+    const file = req.file;
+
+    if (!file) { res.status(400).json({ error: 'Fichier PDF requis' }); return; }
+    if (!(await hasAccessToCourse(req.user.id, courseId))) { res.status(403).json({ error: 'Accès interdit' }); return; }
+
+    const maxPosition = await prisma.pDF.aggregate({ where: { courseId }, _max: { position: true } });
+    const nextPosition = (maxPosition._max.position ?? -1) + 1;
+
+    const pdf = await prisma.pDF.create({
+      data: {
+        title: req.body.title || file.originalname,
+        description: req.body.description || null,
+        url: `pdfs/${file.filename}`,
+        pageCount: req.body.pageCount ? parseInt(req.body.pageCount) : 0,
+        position: req.body.position ? parseInt(req.body.position) : nextPosition,
+        courseId,
+      },
+    });
+
+    res.status(201).json({ message: 'PDF uploadé avec succès', pdf });
+  } catch (error) {
+    logger.error('Erreur uploadPdf mentor:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+};
+
+export const updatePdf = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ error: 'Non authentifié' }); return; }
+    const pdfId = parseInt(req.params.pdfId);
+    const validated = uploadPdfSchema.partial().parse(req.body);
+
+    const pdf = await prisma.pDF.findUnique({ where: { id: pdfId } });
+    if (!pdf) { res.status(404).json({ error: 'PDF non trouvé' }); return; }
+    if (!(await hasAccessToCourse(req.user.id, pdf.courseId))) { res.status(403).json({ error: 'Accès interdit' }); return; }
+
+    const updated = await prisma.pDF.update({ where: { id: pdfId }, data: validated });
+    res.json({ message: 'PDF mis à jour', pdf: updated });
+  } catch (error) {
+    if (error instanceof z.ZodError) { res.status(400).json({ error: 'Erreur de validation', details: error.errors }); return; }
+    logger.error('Erreur updatePdf mentor:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+};
+
+export const deletePdf = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ error: 'Non authentifié' }); return; }
+    const pdfId = parseInt(req.params.pdfId);
+
+    const pdf = await prisma.pDF.findUnique({ where: { id: pdfId } });
+    if (!pdf) { res.status(404).json({ error: 'PDF non trouvé' }); return; }
+    if (!(await hasAccessToCourse(req.user.id, pdf.courseId))) { res.status(403).json({ error: 'Accès interdit' }); return; }
+
+    const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
+    const filePath = path.join(UPLOAD_DIR, pdf.url);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+
+    await prisma.pDF.delete({ where: { id: pdfId } });
+    res.json({ message: 'PDF supprimé avec succès' });
+  } catch (error) {
+    logger.error('Erreur deletePdf mentor:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+};
+
+export const reorderPdfs = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ error: 'Non authentifié' }); return; }
+    const courseId = parseInt(req.params.courseId);
+    const validated = reorderSchema.parse(req.body);
+
+    if (!(await hasAccessToCourse(req.user.id, courseId))) { res.status(403).json({ error: 'Accès interdit' }); return; }
+
+    await Promise.all(validated.items.map((item) =>
+      prisma.pDF.updateMany({ where: { id: item.id, courseId }, data: { position: item.position } })
+    ));
+
+    const pdfs = await prisma.pDF.findMany({ where: { courseId }, orderBy: { position: 'asc' } });
+    res.json({ message: 'Ordre mis à jour', pdfs });
+  } catch (error) {
+    if (error instanceof z.ZodError) { res.status(400).json({ error: 'Erreur de validation', details: error.errors }); return; }
+    logger.error('Erreur reorderPdfs mentor:', error);
     res.status(500).json({ error: 'Erreur interne du serveur' });
   }
 };

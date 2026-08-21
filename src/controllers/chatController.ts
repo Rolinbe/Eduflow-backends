@@ -173,10 +173,13 @@ export const getAllStudents = async (req: AuthRequest, res: Response): Promise<v
     if (req.user.role === 'MENTOR') {
       const mentor = await prisma.user.findUnique({
         where: { id: req.user.id },
-        select: { niveauResponsable: true },
+        select: { niveauResponsable: true, serieResponsable: true },
       });
       if (mentor?.niveauResponsable) {
         where.niveau = mentor.niveauResponsable;
+        if ((mentor.niveauResponsable === 'PREMIERE' || mentor.niveauResponsable === 'TERMINALE') && mentor.serieResponsable) {
+          where.serie = mentor.serieResponsable;
+        }
       }
     }
 
