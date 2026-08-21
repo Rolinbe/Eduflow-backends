@@ -17,6 +17,7 @@ import {
   getUsers,
   getUserById,
   updateUserStatus,
+  updateUserProfile,
   getUserProgression,
   getCategories,
   deleteUser,
@@ -65,6 +66,7 @@ router.put('/cours/:id/pdfs/reorder', reorderPdfs);
 router.get('/users', getUsers);
 router.get('/users/:id', getUserById);
 router.patch('/users/:id/status', updateUserStatus);
+router.put('/users/:id/profile', updateUserProfile);
 router.put('/users/:id/reset-password', resetUserPassword);
 router.delete('/users/:id', deleteUser);
 router.get('/users/:id/progression', getUserProgression);

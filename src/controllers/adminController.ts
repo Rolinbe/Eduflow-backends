@@ -1163,3 +1163,79 @@ export const deleteAnnouncement = async (req: AuthRequest, res: Response): Promi
     res.status(500).json({ error: 'Erreur interne du serveur' });
   }
 };
+
+const updateUserProfileSchema = z.object({
+  firstName: z.string().min(2, 'Le prénom doit contenir au moins 2 caractères').optional(),
+  lastName: z.string().min(2, 'Le nom doit contenir au moins 2 caractères').optional(),
+  email: z.string().email('Email invalide').optional(),
+  role: z.enum(['ADMIN', 'APPRENANT', 'MENTOR']).optional(),
+  niveau: niveauEnum.nullable().optional(),
+  serie: serieEnum.nullable().optional(),
+  niveauResponsable: niveauEnum.nullable().optional(),
+  serieResponsable: serieEnum.nullable().optional(),
+  status: z.enum(['ACTIF', 'INACTIF', 'BLOQUE']).optional(),
+});
+
+export const updateUserProfile = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const validated = updateUserProfileSchema.parse(req.body);
+
+    const user = await prisma.user.findUnique({ where: { id: parseInt(id) } });
+    if (!user) {
+      res.status(404).json({ error: 'Utilisateur non trouvé' });
+      return;
+    }
+
+    if (validated.email && validated.email !== user.email) {
+      const existing = await prisma.user.findUnique({ where: { email: validated.email } });
+      if (existing) {
+        res.status(400).json({ error: 'Cet email est déjà utilisé' });
+        return;
+      }
+    }
+
+    const updateData: any = {};
+    if (validated.firstName !== undefined) updateData.firstName = validated.firstName;
+    if (validated.lastName !== undefined) updateData.lastName = validated.lastName;
+    if (validated.email !== undefined) updateData.email = validated.email;
+    if (validated.role !== undefined) updateData.role = validated.role;
+    if (validated.niveau !== undefined) updateData.niveau = validated.niveau;
+    if (validated.serie !== undefined) updateData.serie = validated.serie;
+    if (validated.niveauResponsable !== undefined) updateData.niveauResponsable = validated.niveauResponsable;
+    if (validated.serieResponsable !== undefined) updateData.serieResponsable = validated.serieResponsable;
+    if (validated.status !== undefined) updateData.status = validated.status;
+
+    if (validated.role === 'APPRENANT' || validated.role === 'MENTOR') {
+      if (validated.niveau !== undefined) updateData.niveau = validated.niveau;
+      if (validated.serie !== undefined) updateData.serie = validated.serie;
+    }
+    if (validated.role === 'MENTOR') {
+      if (validated.niveauResponsable !== undefined) updateData.niveauResponsable = validated.niveauResponsable;
+      if (validated.serieResponsable !== undefined) updateData.serieResponsable = validated.serieResponsable;
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: parseInt(id) },
+      data: updateData,
+      select: { id: true, firstName: true, lastName: true, email: true, role: true, status: true, niveau: true, serie: true, niveauResponsable: true, serieResponsable: true, createdAt: true },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        userId: req.user!.id,
+        action: 'UPDATE_PROFILE',
+        details: `Profil de ${user.firstName} ${user.lastName} modifié: ${JSON.stringify(validated)}`,
+      },
+    });
+
+    res.json({ user: updated, message: 'Profil mis à jour avec succès' });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Erreur de validation', details: error.errors });
+      return;
+    }
+    logger.error('Erreur updateUserProfile:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+};
