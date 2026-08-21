@@ -68,12 +68,20 @@ export function initSocket(httpServer: HttpServer) {
 
     socket.on('send-message', async (data: { conversationId: number; content: string }) => {
       try {
+        const conversation = await prisma.conversation.findUnique({
+          where: { id: data.conversationId },
+        });
+        const recipientId = conversation
+          ? (conversation.participant1Id === userId ? conversation.participant2Id : conversation.participant1Id)
+          : null;
+        const recipientOnline = recipientId ? (onlineUsers.has(recipientId) && onlineUsers.get(recipientId)!.size > 0) : false;
+
         const message = await prisma.message.create({
           data: {
             conversationId: data.conversationId,
             senderId: userId,
             content: data.content,
-            status: 'SENT',
+            status: recipientOnline ? 'DELIVERED' : 'SENT',
           },
           include: {
             sender: { select: { id: true, firstName: true, lastName: true, role: true } },
@@ -88,14 +96,7 @@ export function initSocket(httpServer: HttpServer) {
         io.to(`conversation:${data.conversationId}`).emit('new-message', message);
         io.to(`conversation:${data.conversationId}`).emit('message-sent', { message, conversationId: data.conversationId });
 
-        const conversation = await prisma.conversation.findUnique({
-          where: { id: data.conversationId },
-        });
-        if (conversation) {
-          const recipientId = conversation.participant1Id === userId
-            ? conversation.participant2Id
-            : conversation.participant1Id;
-
+        if (conversation && recipientId) {
           io.to(`user:${recipientId}`).emit('new-message-notification', {
             message,
             conversationId: data.conversationId,
