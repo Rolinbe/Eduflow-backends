@@ -1,14 +1,10 @@
 {
-  "builds": [
+  "buildCommand": "npx prisma generate",
+  "outputDirectory": ".",
+  "rewrites": [
     {
-      "src": "api/index.ts",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/index.ts"
+      "source": "/api/:path+",
+      "destination": "/api/index.ts"
     }
   ]
 }
