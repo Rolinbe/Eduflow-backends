@@ -1,10 +1,15 @@
 {
-  "buildCommand": "npx prisma generate",
-  "outputDirectory": ".",
-  "rewrites": [
+  "installCommand": "npm install && npx prisma generate",
+  "builds": [
     {
-      "source": "/api/:path+",
-      "destination": "/api/index.ts"
+      "src": "api/index.ts",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "api/index.ts"
     }
   ]
 }
