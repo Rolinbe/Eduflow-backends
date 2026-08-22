@@ -1,0 +1,23 @@
+import { Response } from 'express';
+import { AuthRequest } from '../types';
+export declare const getAvailableCours: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const getCoursDetail: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const enrollInCours: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const getMyCours: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const getMyProgression: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const updateVideoProgress: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const updatePdfProgress: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const getGlobalProgression: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const getCommentaires: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const createCommentaire: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const replyToCommentaire: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const likeCommentaire: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const getNotifications: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const markNotificationRead: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const markAllNotificationsRead: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const getCertificate: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const getMyCertificates: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const verifyCertificate: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const getCategories: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const getAnnouncements: (req: AuthRequest, res: Response) => Promise<void>;
+//# sourceMappingURL=apprenantController.d.ts.map

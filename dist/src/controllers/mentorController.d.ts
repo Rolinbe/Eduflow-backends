@@ -1,0 +1,21 @@
+import { Response } from 'express';
+import { AuthRequest } from '../types';
+export declare const getDashboard: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const getStudents: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const getStudentDetail: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const getCourses: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const createCourse: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const updateCourse: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const deleteCourse: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const updateCourseStatus: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const getCourseDetail: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const uploadVideo: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const updateVideo: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const deleteVideo: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const reorderVideos: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const uploadPdf: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const updatePdf: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const deletePdf: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const reorderPdfs: (req: AuthRequest, res: Response) => Promise<void>;
+export declare const getMentorStudentsForChat: (req: AuthRequest, res: Response) => Promise<void>;
+//# sourceMappingURL=mentorController.d.ts.map
