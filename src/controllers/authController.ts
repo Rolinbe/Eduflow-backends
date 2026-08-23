@@ -570,7 +570,7 @@ export const updateMe = async (req: AuthRequest, res: Response): Promise<void> =
     if (req.body.serie !== undefined) updateData.serie = req.body.serie || null;
 
     if (req.file) {
-      updateData.avatar = `/uploads/images/${req.file.filename}`;
+      updateData.avatar = req.file.path;
     }
 
     if (Object.keys(updateData).length === 0) {
