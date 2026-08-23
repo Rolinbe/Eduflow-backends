@@ -9,6 +9,7 @@ import {
   changePassword,
   getMe,
   updateMe,
+  getCloudinarySignature,
 } from '../controllers/authController';
 import { authenticate } from '../middleware/auth';
 import { uploadImage, handleMulterError } from '../middleware/upload';
@@ -24,5 +25,6 @@ router.post('/reset-password', resetPassword);
 router.put('/change-password', authenticate, changePassword);
 router.get('/me', authenticate, getMe);
 router.put('/me', authenticate, uploadImage.single('avatar'), handleMulterError, updateMe);
+router.post('/cloudinary-sign', authenticate, getCloudinarySignature);
 
 export default router;

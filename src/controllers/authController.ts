@@ -604,3 +604,18 @@ export const updateMe = async (req: AuthRequest, res: Response): Promise<void> =
     res.status(500).json({ error: 'Erreur interne du serveur' });
   }
 };
+
+export const getCloudinarySignature = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ error: 'Non authentifié' }); return; }
+    const folder = req.body.folder || 'edukaflow/others';
+    const resourceType = req.body.resourceType || 'auto';
+    const timestamp = Math.round(Date.now() / 1000);
+    const { v2: cloudinary } = await import('cloudinary');
+    const signature = cloudinary.utils.api_sign_request({ timestamp, folder }, process.env.CLOUDINARY_API_SECRET!);
+    res.json({ timestamp, signature, folder, cloud_name: process.env.CLOUDINARY_CLOUD_NAME, api_key: process.env.CLOUDINARY_API_KEY });
+  } catch (error) {
+    logger.error('Erreur getCloudinarySignature:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+};

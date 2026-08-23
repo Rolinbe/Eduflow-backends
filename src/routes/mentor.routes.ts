@@ -17,6 +17,8 @@ import {
   updatePdf,
   deletePdf,
   reorderPdfs,
+  createVideoByUrl,
+  createPdfByUrl,
   getMentorStudentsForChat,
 } from '../controllers/mentorController';
 import {
@@ -44,11 +46,13 @@ router.patch('/cours/:courseId/status', updateCourseStatus);
 router.get('/cours/:courseId/detail', getCourseDetail);
 
 router.post('/cours/:courseId/videos', uploadVideoMiddleware.single('video'), handleMulterError, uploadVideo);
+router.post('/cours/:courseId/videos-url', createVideoByUrl);
 router.put('/videos/:videoId', updateVideo);
 router.delete('/videos/:videoId', deleteVideo);
 router.put('/cours/:courseId/videos/reorder', reorderVideos);
 
 router.post('/cours/:courseId/pdfs', uploadPdfMiddleware.single('pdf'), handleMulterError, uploadPdf);
+router.post('/cours/:courseId/pdfs-url', createPdfByUrl);
 router.put('/pdfs/:pdfId', updatePdf);
 router.delete('/pdfs/:pdfId', deletePdf);
 router.put('/cours/:courseId/pdfs/reorder', reorderPdfs);

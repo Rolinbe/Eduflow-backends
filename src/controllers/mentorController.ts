@@ -605,6 +605,67 @@ export const uploadPdf = async (req: AuthRequest, res: Response): Promise<void> 
   }
 };
 
+export const createVideoByUrl = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ error: 'Non authentifié' }); return; }
+    const courseId = parseInt(req.params.courseId);
+    const { url, title, description, duration, position, isRequired } = req.body;
+
+    if (!url) { res.status(400).json({ error: 'URL de la vidéo requise' }); return; }
+    if (!(await hasAccessToCourse(req.user.id, courseId))) { res.status(403).json({ error: 'Accès interdit' }); return; }
+
+    const maxPosition = await prisma.video.aggregate({ where: { courseId }, _max: { position: true } });
+    const nextPosition = (maxPosition._max.position ?? -1) + 1;
+
+    const video = await prisma.video.create({
+      data: {
+        title: title || 'Vidéo',
+        description: description || null,
+        url,
+        duration: duration ? parseInt(duration) : 0,
+        position: position ? parseInt(position) : nextPosition,
+        isRequired: isRequired !== false,
+        courseId,
+      },
+    });
+
+    res.status(201).json({ message: 'Vidéo enregistrée avec succès', video });
+  } catch (error) {
+    logger.error('Erreur createVideoByUrl mentor:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+};
+
+export const createPdfByUrl = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ error: 'Non authentifié' }); return; }
+    const courseId = parseInt(req.params.courseId);
+    const { url, title, description, pageCount, position } = req.body;
+
+    if (!url) { res.status(400).json({ error: 'URL du PDF requise' }); return; }
+    if (!(await hasAccessToCourse(req.user.id, courseId))) { res.status(403).json({ error: 'Accès interdit' }); return; }
+
+    const maxPosition = await prisma.pDF.aggregate({ where: { courseId }, _max: { position: true } });
+    const nextPosition = (maxPosition._max.position ?? -1) + 1;
+
+    const pdf = await prisma.pDF.create({
+      data: {
+        title: title || 'PDF',
+        description: description || null,
+        url,
+        pageCount: pageCount ? parseInt(pageCount) : 0,
+        position: position ? parseInt(position) : nextPosition,
+        courseId,
+      },
+    });
+
+    res.status(201).json({ message: 'PDF enregistré avec succès', pdf });
+  } catch (error) {
+    logger.error('Erreur createPdfByUrl mentor:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+};
+
 export const updatePdf = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!req.user) { res.status(401).json({ error: 'Non authentifié' }); return; }

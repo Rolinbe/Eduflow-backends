@@ -14,6 +14,8 @@ import {
   updatePdf,
   deletePdf,
   reorderPdfs,
+  createVideoByUrl,
+  createPdfByUrl,
   getUsers,
   getUserById,
   updateUserStatus,
@@ -52,12 +54,14 @@ router.patch('/cours/:id/status', updateCoursStatus);
 
 // Video management
 router.post('/cours/:id/videos', uploadVideoMiddleware.single('video'), handleMulterError, uploadVideo);
+router.post('/cours/:id/videos-url', createVideoByUrl);
 router.put('/videos/:videoId', updateVideo);
 router.delete('/videos/:videoId', deleteVideo);
 router.put('/cours/:id/videos/reorder', reorderVideos);
 
 // PDF management
 router.post('/cours/:id/pdfs', uploadPdfMiddleware.single('pdf'), handleMulterError, uploadPdf);
+router.post('/cours/:id/pdfs-url', createPdfByUrl);
 router.put('/pdfs/:pdfId', updatePdf);
 router.delete('/pdfs/:pdfId', deletePdf);
 router.put('/cours/:id/pdfs/reorder', reorderPdfs);
