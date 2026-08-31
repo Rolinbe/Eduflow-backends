@@ -24,6 +24,7 @@ const registerSchema = z.object({
   firstName: z.string().min(2, 'Le prénom doit contenir au moins 2 caractères'),
   lastName: z.string().min(2, 'Le nom doit contenir au moins 2 caractères'),
   email: z.string().email('Email invalide').optional(),
+  username: z.string().min(3, 'Le nom d\'utilisateur doit contenir au moins 3 caractères').max(100).optional(),
   password: z
     .string()
     .min(8, 'Le mot de passe doit contenir au moins 8 caractères')
@@ -60,10 +61,15 @@ const registerSchema = z.object({
   if (data.role === 'MENTOR' && !data.email) return false;
   if (data.role === 'APPRENANT' && data.niveau && !['SIXIEME', 'CINQUIEME', 'QUATRIEME', 'TROISIEME'].includes(data.niveau) && !data.email) return false;
   return true;
-}, { message: 'L\'email est requis', path: ['email'] });
+}, { message: 'L\'email est requis', path: ['email'] })
+.refine((data) => {
+  if (data.role === 'APPRENANT' && data.niveau && ['SIXIEME', 'CINQUIEME', 'QUATRIEME', 'TROISIEME'].includes(data.niveau) && (!data.username || data.username.trim() === '')) return false;
+  return true;
+}, { message: 'Le nom d\'utilisateur est requis pour les niveaux 6ème à 3ème', path: ['username'] });
 
 const loginSchema = z.object({
-  email: z.string().email('Email invalide'),
+  identifier: z.string().min(1, 'Identifiant requis').optional(),
+  email: z.string().optional(),
   password: z.string().min(1, 'Mot de passe requis'),
 });
 
@@ -128,11 +134,22 @@ export const register = async (req: AuthRequest, res: Response): Promise<void> =
 
     const userRole = validated.role === 'MENTOR' ? 'MENTOR' : 'APPRENANT';
 
+    let username: string | null = null;
+    if (validated.username && validated.username.trim() !== '') {
+      username = validated.username.trim();
+      const existingUsername = await prisma.user.findUnique({ where: { username } });
+      if (existingUsername) {
+        res.status(409).json({ error: 'Ce nom d\'utilisateur est déjà pris, veuillez en choisir un autre' });
+        return;
+      }
+    }
+
     const user = await prisma.user.create({
       data: {
         firstName: validated.firstName,
         lastName: validated.lastName,
         email,
+        username,
         password: hashedPassword,
         role: userRole,
         status: 'ACTIF',
@@ -146,6 +163,7 @@ export const register = async (req: AuthRequest, res: Response): Promise<void> =
         firstName: true,
         lastName: true,
         email: true,
+        username: true,
         role: true,
         status: true,
         niveau: true,
@@ -215,19 +233,23 @@ export const login = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const validated = loginSchema.parse(req.body);
 
-    const attempt = loginAttempts.get(validated.email);
+    const identifier = (validated.identifier || validated.email || '').trim();
+
+    const attempt = loginAttempts.get(identifier);
     if (attempt && attempt.blockedUntil > Date.now()) {
       const remaining = Math.ceil((attempt.blockedUntil - Date.now()) / 60000);
       res.status(429).json({ error: `Trop de tentatives. Réessayez dans ${remaining} minutes` });
       return;
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: validated.email },
-    });
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier);
+
+    const user = isEmail
+      ? await prisma.user.findUnique({ where: { email: identifier } })
+      : await prisma.user.findUnique({ where: { username: identifier } });
 
     if (!user) {
-      res.status(401).json({ error: 'Email ou mot de passe incorrect' });
+      res.status(401).json({ error: 'Identifiant ou mot de passe incorrect' });
       return;
     }
 
@@ -244,7 +266,7 @@ export const login = async (req: AuthRequest, res: Response): Promise<void> => {
     const isPasswordValid = await bcrypt.compare(validated.password, user.password);
 
     if (!isPasswordValid) {
-      const currentAttempt = loginAttempts.get(validated.email) || { count: 0, blockedUntil: 0 };
+      const currentAttempt = loginAttempts.get(identifier) || { count: 0, blockedUntil: 0 };
       currentAttempt.count += 1;
 
       if (currentAttempt.count >= 5) {
@@ -252,13 +274,11 @@ export const login = async (req: AuthRequest, res: Response): Promise<void> => {
         currentAttempt.count = 0;
       }
 
-      loginAttempts.set(validated.email, currentAttempt);
+      loginAttempts.set(identifier, currentAttempt);
 
-      res.status(401).json({ error: 'Email ou mot de passe incorrect' });
+      res.status(401).json({ error: 'Identifiant ou mot de passe incorrect' });
       return;
     }
-
-    loginAttempts.delete(validated.email);
 
     await prisma.user.update({
       where: { id: user.id },
@@ -523,6 +543,7 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
         firstName: true,
         lastName: true,
         email: true,
+        username: true,
         role: true,
         status: true,
         niveau: true,
@@ -586,6 +607,7 @@ export const updateMe = async (req: AuthRequest, res: Response): Promise<void> =
         firstName: true,
         lastName: true,
         email: true,
+        username: true,
         role: true,
         status: true,
         niveau: true,
