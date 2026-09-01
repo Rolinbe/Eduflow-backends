@@ -36,6 +36,15 @@ import {
   deleteModule,
   reorderModules,
 } from '../controllers/adminController';
+import {
+  getFolders,
+  createFolder,
+  updateFolder,
+  deleteFolder,
+  getMaterials,
+  createMaterial,
+  deleteMaterial,
+} from '../controllers/folderController';
 import { authenticate, adminOnly } from '../middleware/auth';
 import { uploadVideo as uploadVideoMiddleware, uploadPdf as uploadPdfMiddleware, handleMulterError } from '../middleware/upload';
 
@@ -77,6 +86,17 @@ router.post('/cours/:id/modules', createModule);
 router.put('/modules/:moduleId', updateModule);
 router.delete('/modules/:moduleId', deleteModule);
 router.put('/cours/:id/modules/reorder', reorderModules);
+
+// Folder management (hierarchical folders)
+router.get('/cours/:courseId/folders', getFolders);
+router.post('/cours/:courseId/folders', createFolder);
+router.put('/folders/:folderId', updateFolder);
+router.delete('/folders/:folderId', deleteFolder);
+
+// Course materials
+router.get('/folders/:folderId/materials', getMaterials);
+router.post('/folders/:folderId/materials', createMaterial);
+router.delete('/materials/:materialId', deleteMaterial);
 
 // User management
 router.get('/users', getUsers);

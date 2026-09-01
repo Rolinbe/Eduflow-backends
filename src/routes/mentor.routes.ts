@@ -27,6 +27,15 @@ import {
   reorderModules,
 } from '../controllers/mentorController';
 import {
+  getFolders,
+  createFolder,
+  updateFolder,
+  deleteFolder,
+  getMaterials,
+  createMaterial,
+  deleteMaterial,
+} from '../controllers/folderController';
+import {
   getNotifications,
   markNotificationRead,
   markAllNotificationsRead,
@@ -67,6 +76,17 @@ router.post('/cours/:courseId/modules', createModule);
 router.put('/modules/:moduleId', updateModule);
 router.delete('/modules/:moduleId', deleteModule);
 router.put('/cours/:courseId/modules/reorder', reorderModules);
+
+// Folder management (hierarchical folders)
+router.get('/cours/:courseId/folders', getFolders);
+router.post('/cours/:courseId/folders', createFolder);
+router.put('/folders/:folderId', updateFolder);
+router.delete('/folders/:folderId', deleteFolder);
+
+// Course materials
+router.get('/folders/:folderId/materials', getMaterials);
+router.post('/folders/:folderId/materials', createMaterial);
+router.delete('/materials/:materialId', deleteMaterial);
 
 router.get('/chat/students', getMentorStudentsForChat);
 

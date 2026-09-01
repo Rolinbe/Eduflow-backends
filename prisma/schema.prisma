@@ -66,22 +66,22 @@ enum Serie {
 }
 
 model User {
-  id            Int       @id @default(autoincrement())
-  firstName     String    @map("first_name") @db.VarChar(100)
-  lastName      String    @map("last_name") @db.VarChar(100)
-  email         String    @unique @db.VarChar(255)
-  username      String?   @unique @db.VarChar(100)
-  password      String    @db.VarChar(255)
-  role          UserRole  @default(APPRENANT)
-  status        UserStatus @default(ACTIF)
-  niveau              Niveau?
-  serie               Serie?
-  niveauResponsable   Niveau?    @map("niveau_responsable")
-  serieResponsable    Serie?     @map("serie_responsable")
-  avatar              String?    @db.VarChar(500)
-  lastLogin     DateTime? @map("last_login")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  id                Int        @id @default(autoincrement())
+  firstName         String     @map("first_name") @db.VarChar(100)
+  lastName          String     @map("last_name") @db.VarChar(100)
+  email             String     @unique @db.VarChar(255)
+  username          String?    @unique @db.VarChar(100)
+  password          String     @db.VarChar(255)
+  role              UserRole   @default(APPRENANT)
+  status            UserStatus @default(ACTIF)
+  niveau            Niveau?
+  serie             Serie?
+  niveauResponsable Niveau?    @map("niveau_responsable")
+  serieResponsable  Serie?     @map("serie_responsable")
+  avatar            String?    @db.VarChar(500)
+  lastLogin         DateTime?  @map("last_login")
+  createdAt         DateTime   @default(now()) @map("created_at")
+  updatedAt         DateTime   @updatedAt @map("updated_at")
 
   cours         Cours[]
   enrollments   Enrollment[]
@@ -124,11 +124,12 @@ model Cours {
   createdAt   DateTime    @default(now()) @map("created_at")
   updatedAt   DateTime    @updatedAt @map("updated_at")
 
-  category    Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  admin       User        @relation(fields: [adminId], references: [id], onDelete: Cascade)
-  videos      Video[]
-  pdfs        PDF[]
-  modules     Module[]
+  category     Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  admin        User          @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  videos       Video[]
+  pdfs         PDF[]
+  modules      Module[]
+  folders      Folder[]
   enrollments  Enrollment[]
   progressions Progression[]
   commentaires Commentaire[]
@@ -146,8 +147,8 @@ model Video {
   duration     Int      @default(0)
   position     Int      @default(0)
   isRequired   Boolean  @default(true) @map("is_required")
-  courseId      Int      @map("course_id")
-  moduleId      Int?     @map("module_id")
+  courseId     Int      @map("course_id")
+  moduleId     Int?     @map("module_id")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
@@ -164,8 +165,8 @@ model PDF {
   url         String   @db.VarChar(500)
   pageCount   Int      @default(0) @map("page_count")
   position    Int      @default(0)
-  courseId     Int      @map("course_id")
-  moduleId     Int?     @map("module_id")
+  courseId    Int      @map("course_id")
+  moduleId    Int?     @map("module_id")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -179,7 +180,7 @@ model Module {
   id        Int      @id @default(autoincrement())
   title     String   @db.VarChar(255)
   position  Int      @default(0)
-  courseId   Int      @map("course_id")
+  courseId  Int      @map("course_id")
   createdAt DateTime @default(now()) @map("created_at")
 
   cours   Cours    @relation(fields: [courseId], references: [id], onDelete: Cascade)
@@ -188,6 +189,40 @@ model Module {
   pdfs    PDF[]
 
   @@map("modules")
+}
+
+model Folder {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(255)
+  courseId  Int      @map("course_id")
+  parentId  Int?     @map("parent_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  cours     Cours            @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  parent    Folder?          @relation("FolderChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children  Folder[]         @relation("FolderChildren")
+  materials CourseMaterial[]
+
+  @@index([courseId])
+  @@index([parentId])
+  @@map("folders")
+}
+
+model CourseMaterial {
+  id        Int      @id @default(autoincrement())
+  folderId  Int      @map("folder_id")
+  title     String   @db.VarChar(255)
+  type      String   @db.VarChar(20)
+  fileUrl   String?  @map("file_url") @db.VarChar(500)
+  content   String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  folder Folder @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  @@index([folderId])
+  @@map("course_materials")
 }
 
 model Lesson {
@@ -211,28 +246,28 @@ model Lesson {
 model Enrollment {
   id         Int      @id @default(autoincrement())
   userId     Int      @map("user_id")
-  courseId    Int      @map("course_id")
+  courseId   Int      @map("course_id")
   progress   Int      @default(0)
   enrolledAt DateTime @default(now()) @map("enrolled_at")
 
-  user   User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  cours  Cours @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cours Cours @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@unique([userId, courseId])
   @@map("enrollments")
 }
 
 model Progression {
-  id            Int               @id @default(autoincrement())
-  userId        Int               @map("user_id")
-  coursId       Int               @map("cours_id")
-  lessonId      Int?              @map("lesson_id")
-  status        ProgressionStatus @default(NON_VU)
-  timeSpent     Int               @default(0) @map("time_spent")
-  position      Int               @default(0)
-  lastAccessed  DateTime?         @map("last_accessed")
-  createdAt     DateTime          @default(now()) @map("created_at")
-  updatedAt     DateTime          @updatedAt @map("updated_at")
+  id           Int               @id @default(autoincrement())
+  userId       Int               @map("user_id")
+  coursId      Int               @map("cours_id")
+  lessonId     Int?              @map("lesson_id")
+  status       ProgressionStatus @default(NON_VU)
+  timeSpent    Int               @default(0) @map("time_spent")
+  position     Int               @default(0)
+  lastAccessed DateTime?         @map("last_accessed")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
 
   user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   cours  Cours   @relation(fields: [coursId], references: [id], onDelete: Cascade)
@@ -251,12 +286,12 @@ model Commentaire {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  cours     Cours        @relation(fields: [coursId], references: [id], onDelete: Cascade)
-  lesson    Lesson?      @relation(fields: [lessonId], references: [id], onDelete: SetNull)
-  parent    Commentaire? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies   Commentaire[] @relation("CommentReplies")
-  likes     Like[]
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cours   Cours         @relation(fields: [coursId], references: [id], onDelete: Cascade)
+  lesson  Lesson?       @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  parent  Commentaire?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies Commentaire[] @relation("CommentReplies")
+  likes   Like[]
 
   @@map("commentaires")
 }
@@ -289,13 +324,13 @@ model Notification {
 }
 
 model Certificate {
-  id              Int              @id @default(autoincrement())
-  userId          Int              @map("user_id")
-  coursId         Int              @map("cours_id")
-  uniqueNumber    String           @unique @map("unique_number") @db.VarChar(50)
-  verificationKey String           @map("verification_key") @db.VarChar(255)
+  id              Int               @id @default(autoincrement())
+  userId          Int               @map("user_id")
+  coursId         Int               @map("cours_id")
+  uniqueNumber    String            @unique @map("unique_number") @db.VarChar(50)
+  verificationKey String            @map("verification_key") @db.VarChar(255)
   status          CertificateStatus @default(VALIDE)
-  issuedAt        DateTime         @default(now()) @map("issued_at")
+  issuedAt        DateTime          @default(now()) @map("issued_at")
 
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   cours Cours @relation(fields: [coursId], references: [id], onDelete: Cascade)
@@ -311,12 +346,12 @@ enum MessageStatus {
 }
 
 model Conversation {
-  id              Int      @id @default(autoincrement())
-  participant1Id  Int      @map("participant1_id")
-  participant2Id  Int      @map("participant2_id")
-  lastMessageAt   DateTime @default(now()) @map("last_message_at")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  id             Int      @id @default(autoincrement())
+  participant1Id Int      @map("participant1_id")
+  participant2Id Int      @map("participant2_id")
+  lastMessageAt  DateTime @default(now()) @map("last_message_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
   participant1 User      @relation("ConversationParticipant1", fields: [participant1Id], references: [id], onDelete: Cascade)
   participant2 User      @relation("ConversationParticipant2", fields: [participant2Id], references: [id], onDelete: Cascade)
@@ -327,12 +362,12 @@ model Conversation {
 }
 
 model Message {
-  id              Int           @id @default(autoincrement())
-  conversationId  Int           @map("conversation_id")
-  senderId        Int           @map("sender_id")
-  content         String        @db.Text
-  status          MessageStatus @default(SENT)
-  createdAt       DateTime      @default(now()) @map("created_at")
+  id             Int           @id @default(autoincrement())
+  conversationId Int           @map("conversation_id")
+  senderId       Int           @map("sender_id")
+  content        String        @db.Text
+  status         MessageStatus @default(SENT)
+  createdAt      DateTime      @default(now()) @map("created_at")
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender       User         @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
