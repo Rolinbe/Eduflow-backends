@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import winston from 'winston';
 import { AuthRequest } from '../types';
+import { sendChatMessage, markMessagesRead } from '../socket/chatSocket';
 
 const prisma = new PrismaClient();
 const logger = winston.createLogger({ level: 'info', format: winston.format.json(), transports: [new winston.transports.Console()] });
@@ -126,6 +127,49 @@ export const getMessages = async (req: AuthRequest, res: Response): Promise<void
     });
   } catch (error) {
     logger.error('Erreur getMessages:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+};
+
+export const sendMessage = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ error: 'Non authentifié' }); return; }
+    const { id } = req.params;
+    const { content } = req.body;
+
+    if (!content || typeof content !== 'string' || !content.trim()) {
+      res.status(400).json({ error: 'Le contenu du message est requis' }); return;
+    }
+
+    const conversation = await prisma.conversation.findUnique({ where: { id: parseInt(id) } });
+    if (!conversation) { res.status(404).json({ error: 'Conversation non trouvée' }); return; }
+    if (conversation.participant1Id !== req.user.id && conversation.participant2Id !== req.user.id) {
+      res.status(403).json({ error: 'Accès interdit' }); return;
+    }
+
+    const message = await sendChatMessage(req.user.id, conversation.id, content.trim());
+    res.status(201).json({ message });
+  } catch (error) {
+    logger.error('Erreur sendMessage:', error);
+    res.status(500).json({ error: 'Erreur lors de l\'envoi du message' });
+  }
+};
+
+export const markConversationRead = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ error: 'Non authentifié' }); return; }
+    const { id } = req.params;
+
+    const conversation = await prisma.conversation.findUnique({ where: { id: parseInt(id) } });
+    if (!conversation) { res.status(404).json({ error: 'Conversation non trouvée' }); return; }
+    if (conversation.participant1Id !== req.user.id && conversation.participant2Id !== req.user.id) {
+      res.status(403).json({ error: 'Accès interdit' }); return;
+    }
+
+    await markMessagesRead(conversation.id, req.user.id);
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Erreur markConversationRead:', error);
     res.status(500).json({ error: 'Erreur interne du serveur' });
   }
 };

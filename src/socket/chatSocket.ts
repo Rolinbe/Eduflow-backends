@@ -21,6 +21,77 @@ export function isUserOnline(userId: number): boolean {
   return onlineUsers.has(userId) && onlineUsers.get(userId)!.size > 0;
 }
 
+export async function sendChatMessage(senderId: number, conversationId: number, content: string) {
+  const conversation = await prisma.conversation.findUnique({ where: { id: conversationId } });
+  if (!conversation) throw new Error('Conversation introuvable');
+
+  const recipientId = conversation.participant1Id === senderId ? conversation.participant2Id : conversation.participant1Id;
+  const recipientOnline = recipientId ? isUserOnline(recipientId) : false;
+
+  const message = await prisma.message.create({
+    data: {
+      conversationId,
+      senderId,
+      content,
+      status: recipientOnline ? 'DELIVERED' : 'SENT',
+    },
+    include: {
+      sender: { select: { id: true, firstName: true, lastName: true, role: true } },
+    },
+  });
+
+  await prisma.conversation.update({
+    where: { id: conversationId },
+    data: { lastMessageAt: new Date() },
+  });
+
+  if (io) {
+    io.to(`conversation:${conversationId}`).emit('new-message', message);
+    io.to(`conversation:${conversationId}`).emit('message-sent', { message, conversationId });
+
+    if (recipientId) {
+      io.to(`user:${recipientId}`).emit('new-message-notification', { message, conversationId });
+    }
+  }
+
+  if (recipientId) {
+    const sender = await prisma.user.findUnique({
+      where: { id: senderId },
+      select: { firstName: true, lastName: true, role: true },
+    });
+    if (sender) {
+      const roleLabel = sender.role === 'MENTOR' ? 'votre mentor' : sender.role === 'ADMIN' ? 'l\'administration' : 'votre élève';
+      await prisma.notification.create({
+        data: {
+          userId: recipientId,
+          type: 'INFO',
+          title: 'Nouveau message',
+          message: `${sender.firstName} ${sender.lastName} (${roleLabel}) vous a envoyé un message.`,
+        },
+      });
+    }
+  }
+
+  return message;
+}
+
+export async function markMessagesRead(conversationId: number, readerId: number) {
+  await prisma.message.updateMany({
+    where: {
+      conversationId,
+      senderId: { not: readerId },
+      status: { not: 'READ' },
+    },
+    data: { status: 'READ' },
+  });
+  if (io) {
+    io.to(`conversation:${conversationId}`).emit('messages-read', {
+      conversationId,
+      readBy: readerId,
+    });
+  }
+}
+
 export function initSocket(httpServer: HttpServer) {
   io = new SocketServer(httpServer, {
     cors: {
@@ -68,57 +139,7 @@ export function initSocket(httpServer: HttpServer) {
 
     socket.on('send-message', async (data: { conversationId: number; content: string }) => {
       try {
-        const conversation = await prisma.conversation.findUnique({
-          where: { id: data.conversationId },
-        });
-        const recipientId = conversation
-          ? (conversation.participant1Id === userId ? conversation.participant2Id : conversation.participant1Id)
-          : null;
-        const recipientOnline = recipientId ? (onlineUsers.has(recipientId) && onlineUsers.get(recipientId)!.size > 0) : false;
-
-        const message = await prisma.message.create({
-          data: {
-            conversationId: data.conversationId,
-            senderId: userId,
-            content: data.content,
-            status: recipientOnline ? 'DELIVERED' : 'SENT',
-          },
-          include: {
-            sender: { select: { id: true, firstName: true, lastName: true, role: true } },
-          },
-        });
-
-        await prisma.conversation.update({
-          where: { id: data.conversationId },
-          data: { lastMessageAt: new Date() },
-        });
-
-        io.to(`conversation:${data.conversationId}`).emit('new-message', message);
-        io.to(`conversation:${data.conversationId}`).emit('message-sent', { message, conversationId: data.conversationId });
-
-        if (conversation && recipientId) {
-          io.to(`user:${recipientId}`).emit('new-message-notification', {
-            message,
-            conversationId: data.conversationId,
-          });
-
-          const sender = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { firstName: true, lastName: true, role: true },
-          });
-
-          if (sender) {
-            const roleLabel = sender.role === 'MENTOR' ? 'votre mentor' : sender.role === 'ADMIN' ? 'l\'administration' : 'votre élève';
-            await prisma.notification.create({
-              data: {
-                userId: recipientId,
-                type: 'INFO',
-                title: 'Nouveau message',
-                message: `${sender.firstName} ${sender.lastName} (${roleLabel}) vous a envoyé un message.`,
-              },
-            });
-          }
-        }
+        await sendChatMessage(userId, data.conversationId, data.content);
       } catch (error) {
         socket.emit('error', { message: 'Erreur lors de l\'envoi du message' });
       }
@@ -140,18 +161,7 @@ export function initSocket(httpServer: HttpServer) {
 
     socket.on('mark-read', async (data: { conversationId: number }) => {
       try {
-        await prisma.message.updateMany({
-          where: {
-            conversationId: data.conversationId,
-            senderId: { not: userId },
-            status: { not: 'READ' },
-          },
-          data: { status: 'READ' },
-        });
-        io.to(`conversation:${data.conversationId}`).emit('messages-read', {
-          conversationId: data.conversationId,
-          readBy: userId,
-        });
+        await markMessagesRead(data.conversationId, userId);
       } catch (error) {
         console.error('Error marking read:', error);
       }
