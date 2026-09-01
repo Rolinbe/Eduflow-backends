@@ -47,6 +47,7 @@ const createVideoSchema = z.object({
   duration: z.number().int().min(0).optional(),
   position: z.number().int().min(0).optional(),
   isRequired: z.boolean().optional(),
+  moduleId: z.number().int().positive().nullable().optional(),
 });
 
 const updateVideoSchema = z.object({
@@ -55,6 +56,7 @@ const updateVideoSchema = z.object({
   duration: z.number().int().min(0).optional(),
   position: z.number().int().min(0).optional(),
   isRequired: z.boolean().optional(),
+  moduleId: z.number().int().positive().nullable().optional(),
 });
 
 const createPdfSchema = z.object({
@@ -62,12 +64,24 @@ const createPdfSchema = z.object({
   description: z.string().optional(),
   pageCount: z.number().int().min(0).optional(),
   position: z.number().int().min(0).optional(),
+  moduleId: z.number().int().positive().nullable().optional(),
 });
 
 const updatePdfSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional(),
   pageCount: z.number().int().min(0).optional(),
+  position: z.number().int().min(0).optional(),
+  moduleId: z.number().int().positive().nullable().optional(),
+});
+
+const createModuleSchema = z.object({
+  title: z.string().min(1, 'Titre requis'),
+  position: z.number().int().min(0).optional(),
+});
+
+const updateModuleSchema = z.object({
+  title: z.string().min(1).optional(),
   position: z.number().int().min(0).optional(),
 });
 
@@ -217,6 +231,9 @@ export const getCours = async (req: AuthRequest, res: Response): Promise<void> =
         include: {
           category: { select: { id: true, name: true, slug: true } },
           admin: { select: { id: true, firstName: true, lastName: true } },
+          videos: { orderBy: { position: 'asc' } },
+          pdfs: { orderBy: { position: 'asc' } },
+          modules: { include: { videos: { orderBy: { position: 'asc' } }, pdfs: { orderBy: { position: 'asc' } }, _count: { select: { videos: true, pdfs: true } } }, orderBy: { position: 'asc' } },
           _count: {
             select: {
               videos: true,
@@ -427,6 +444,7 @@ export const uploadVideo = async (req: AuthRequest, res: Response): Promise<void
       position: req.body.position ? parseInt(req.body.position) : nextPosition,
       isRequired: req.body.isRequired !== 'false',
       courseId: parseInt(id),
+      moduleId: req.body.moduleId && req.body.moduleId !== '' ? parseInt(req.body.moduleId) : null,
     };
 
     const video = await prisma.video.create({
@@ -566,6 +584,7 @@ export const uploadPdf = async (req: AuthRequest, res: Response): Promise<void> 
       pageCount: req.body.pageCount ? parseInt(req.body.pageCount) : 0,
       position: req.body.position ? parseInt(req.body.position) : nextPosition,
       courseId: parseInt(id),
+      moduleId: req.body.moduleId && req.body.moduleId !== '' ? parseInt(req.body.moduleId) : null,
     };
 
     const pdf = await prisma.pDF.create({
@@ -582,7 +601,7 @@ export const uploadPdf = async (req: AuthRequest, res: Response): Promise<void> 
 export const createVideoByUrl = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { url, title, description, duration, position, isRequired } = req.body;
+    const { url, title, description, duration, position, isRequired, moduleId } = req.body;
 
     if (!url) { res.status(400).json({ error: 'URL de la vidéo requise' }); return; }
 
@@ -601,6 +620,7 @@ export const createVideoByUrl = async (req: AuthRequest, res: Response): Promise
         position: position ? parseInt(position) : nextPosition,
         isRequired: isRequired !== false,
         courseId: parseInt(id),
+        moduleId: moduleId && moduleId !== '' ? parseInt(moduleId) : null,
       },
     });
 
@@ -614,7 +634,7 @@ export const createVideoByUrl = async (req: AuthRequest, res: Response): Promise
 export const createPdfByUrl = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { url, title, description, pageCount, position } = req.body;
+    const { url, title, description, pageCount, position, moduleId } = req.body;
 
     if (!url) { res.status(400).json({ error: 'URL du PDF requise' }); return; }
 
@@ -632,6 +652,7 @@ export const createPdfByUrl = async (req: AuthRequest, res: Response): Promise<v
         pageCount: pageCount ? parseInt(pageCount) : 0,
         position: position ? parseInt(position) : nextPosition,
         courseId: parseInt(id),
+        moduleId: moduleId && moduleId !== '' ? parseInt(moduleId) : null,
       },
     });
 
@@ -731,6 +752,40 @@ export const reorderPdfs = async (req: AuthRequest, res: Response): Promise<void
       return;
     }
     logger.error('Erreur reorderPdfs:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+};
+
+export const reorderModules = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const validated = reorderSchema.parse(req.body);
+
+    const updatePromises = validated.items.map((item) =>
+      prisma.module.updateMany({
+        where: {
+          id: item.id,
+          courseId: parseInt(id),
+        },
+        data: { position: item.position },
+      })
+    );
+
+    await Promise.all(updatePromises);
+
+    const modules = await prisma.module.findMany({
+      where: { courseId: parseInt(id) },
+      include: { _count: { select: { videos: true, pdfs: true } } },
+      orderBy: { position: 'asc' },
+    });
+
+    res.json({ message: 'Ordre des modules mis à jour', modules });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Erreur de validation', details: error.errors });
+      return;
+    }
+    logger.error('Erreur reorderModules:', error);
     res.status(500).json({ error: 'Erreur interne du serveur' });
   }
 };
@@ -1299,6 +1354,139 @@ export const updateUserProfile = async (req: AuthRequest, res: Response): Promis
       return;
     }
     logger.error('Erreur updateUserProfile:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+};
+
+export const getModules = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    const course = await prisma.cours.findUnique({
+      where: { id: parseInt(id) },
+      select: { id: true },
+    });
+
+    if (!course) {
+      res.status(404).json({ error: 'Cours non trouvé' });
+      return;
+    }
+
+    const modules = await prisma.module.findMany({
+      where: { courseId: parseInt(id) },
+      include: {
+        _count: { select: { videos: true, pdfs: true } },
+      },
+      orderBy: { position: 'asc' },
+    });
+
+    res.json({ modules });
+  } catch (error) {
+    logger.error('Erreur getModules:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+};
+
+export const createModule = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const validated = createModuleSchema.parse(req.body);
+
+    const course = await prisma.cours.findUnique({
+      where: { id: parseInt(id) },
+      select: { id: true },
+    });
+
+    if (!course) {
+      res.status(404).json({ error: 'Cours non trouvé' });
+      return;
+    }
+
+    const maxPosition = await prisma.module.aggregate({
+      where: { courseId: parseInt(id) },
+      _max: { position: true },
+    });
+
+    const module = await prisma.module.create({
+      data: {
+        title: validated.title,
+        position: validated.position ?? (maxPosition._max.position ?? -1) + 1,
+        courseId: parseInt(id),
+      },
+      include: { _count: { select: { videos: true, pdfs: true } } },
+    });
+
+    res.status(201).json({ message: 'Module créé avec succès', module });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Erreur de validation', details: error.errors });
+      return;
+    }
+    logger.error('Erreur createModule:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+};
+
+export const updateModule = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { moduleId } = req.params;
+    const validated = updateModuleSchema.parse(req.body);
+
+    const existing = await prisma.module.findUnique({
+      where: { id: parseInt(moduleId) },
+    });
+
+    if (!existing) {
+      res.status(404).json({ error: 'Module non trouvé' });
+      return;
+    }
+
+    const module = await prisma.module.update({
+      where: { id: parseInt(moduleId) },
+      data: validated,
+      include: { _count: { select: { videos: true, pdfs: true } } },
+    });
+
+    res.json({ message: 'Module mis à jour', module });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Erreur de validation', details: error.errors });
+      return;
+    }
+    logger.error('Erreur updateModule:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+};
+
+export const deleteModule = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { moduleId } = req.params;
+
+    const existing = await prisma.module.findUnique({
+      where: { id: parseInt(moduleId) },
+      include: { videos: true, pdfs: true },
+    });
+
+    if (!existing) {
+      res.status(404).json({ error: 'Module non trouvé' });
+      return;
+    }
+
+    await prisma.$transaction([
+      prisma.video.updateMany({
+        where: { moduleId: parseInt(moduleId) },
+        data: { moduleId: null },
+      }),
+      prisma.pDF.updateMany({
+        where: { moduleId: parseInt(moduleId) },
+        data: { moduleId: null },
+      }),
+      prisma.module.delete({ where: { id: parseInt(moduleId) } }),
+    ]);
+
+    res.json({ message: 'Module supprimé avec succès' });
+  } catch (error) {
+    logger.error('Erreur deleteModule:', error);
     res.status(500).json({ error: 'Erreur interne du serveur' });
   }
 };

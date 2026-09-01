@@ -20,6 +20,11 @@ import {
   createVideoByUrl,
   createPdfByUrl,
   getMentorStudentsForChat,
+  getModules,
+  createModule,
+  updateModule,
+  deleteModule,
+  reorderModules,
 } from '../controllers/mentorController';
 import {
   getNotifications,
@@ -56,6 +61,12 @@ router.post('/cours/:courseId/pdfs-url', createPdfByUrl);
 router.put('/pdfs/:pdfId', updatePdf);
 router.delete('/pdfs/:pdfId', deletePdf);
 router.put('/cours/:courseId/pdfs/reorder', reorderPdfs);
+
+router.get('/cours/:courseId/modules', getModules);
+router.post('/cours/:courseId/modules', createModule);
+router.put('/modules/:moduleId', updateModule);
+router.delete('/modules/:moduleId', deleteModule);
+router.put('/cours/:courseId/modules/reorder', reorderModules);
 
 router.get('/chat/students', getMentorStudentsForChat);
 

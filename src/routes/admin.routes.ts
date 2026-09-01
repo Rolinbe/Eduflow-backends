@@ -30,6 +30,11 @@ import {
   getAnnouncements,
   createAnnouncement,
   deleteAnnouncement,
+  getModules,
+  createModule,
+  updateModule,
+  deleteModule,
+  reorderModules,
 } from '../controllers/adminController';
 import { authenticate, adminOnly } from '../middleware/auth';
 import { uploadVideo as uploadVideoMiddleware, uploadPdf as uploadPdfMiddleware, handleMulterError } from '../middleware/upload';
@@ -65,6 +70,13 @@ router.post('/cours/:id/pdfs-url', createPdfByUrl);
 router.put('/pdfs/:pdfId', updatePdf);
 router.delete('/pdfs/:pdfId', deletePdf);
 router.put('/cours/:id/pdfs/reorder', reorderPdfs);
+
+// Module management
+router.get('/cours/:id/modules', getModules);
+router.post('/cours/:id/modules', createModule);
+router.put('/modules/:moduleId', updateModule);
+router.delete('/modules/:moduleId', deleteModule);
+router.put('/cours/:id/modules/reorder', reorderModules);
 
 // User management
 router.get('/users', getUsers);

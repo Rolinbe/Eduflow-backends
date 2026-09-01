@@ -134,6 +134,9 @@ export const getCoursDetail = async (req: AuthRequest, res: Response): Promise<v
         modules: {
           include: {
             lessons: { orderBy: { position: 'asc' } },
+            videos: { orderBy: { position: 'asc' } },
+            pdfs: { orderBy: { position: 'asc' } },
+            _count: { select: { videos: true, pdfs: true } },
           },
           orderBy: { position: 'asc' },
         },
