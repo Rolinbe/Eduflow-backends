@@ -66,20 +66,26 @@ export const getAvailableCours = async (req: AuthRequest, res: Response): Promis
         select: { niveau: true, serie: true },
       });
 
-      if (student?.niveau) {
-        if (student.niveau === 'PREMIERE' || student.niveau === 'TERMINALE') {
-          where.AND = [
-            { niveau: student.niveau },
-            {
-              OR: [
-                { serie: student.serie },
-                { serie: null },
-              ],
-            },
-          ];
-        } else {
-          where.niveau = student.niveau;
-        }
+      if (!student?.niveau) {
+        res.json({
+          courses: [],
+          pagination: {
+            page: pageNum,
+            limit: limitNum,
+            total: 0,
+            totalPages: 1,
+          },
+        });
+        return;
+      }
+
+      if (student.niveau === 'PREMIERE' || student.niveau === 'TERMINALE') {
+        where.AND = [
+          { niveau: student.niveau },
+          { serie: student.serie },
+        ];
+      } else {
+        where.niveau = student.niveau;
       }
     }
 

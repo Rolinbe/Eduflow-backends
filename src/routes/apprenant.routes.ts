@@ -22,6 +22,7 @@ import {
   getAnnouncements,
 } from '../controllers/apprenantController';
 import { authenticate } from '../middleware/auth';
+import { getFolders, getMaterials } from '../controllers/folderController';
 
 const router = Router();
 
@@ -35,6 +36,10 @@ router.get('/cours', getAvailableCours);
 router.get('/cours/:id', getCoursDetail);
 router.post('/cours/:id/enroll', enrollInCours);
 router.get('/my-cours', getMyCours);
+
+// Folders & materials (lecture seule pour l'apprenant)
+router.get('/cours/:courseId/folders', getFolders);
+router.get('/folders/:folderId/materials', getMaterials);
 
 // Progression
 router.get('/cours/:id/progression', getMyProgression);
