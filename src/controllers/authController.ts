@@ -634,7 +634,11 @@ export const getCloudinarySignature = async (req: AuthRequest, res: Response): P
     const resourceType = req.body.resourceType || 'auto';
     const timestamp = Math.round(Date.now() / 1000);
     const { v2: cloudinary } = await import('cloudinary');
-    const signature = cloudinary.utils.api_sign_request({ timestamp, folder }, process.env.CLOUDINARY_API_SECRET!);
+    const signatureParams: Record<string, string | number> = { timestamp, folder };
+    if (['video', 'raw'].includes(resourceType)) {
+      signatureParams.resource_type = resourceType;
+    }
+    const signature = cloudinary.utils.api_sign_request(signatureParams, process.env.CLOUDINARY_API_SECRET!);
     res.json({ timestamp, signature, folder, cloud_name: process.env.CLOUDINARY_CLOUD_NAME, api_key: process.env.CLOUDINARY_API_KEY });
   } catch (error) {
     logger.error('Erreur getCloudinarySignature:', error);
